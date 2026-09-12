@@ -29,8 +29,8 @@
 Agent 开始工作时必须：
 
 1. 读取本文件；
-2. 读取 `README.md` 的协作摘要；
-3. 按任务读取 `docs/REVIEW_BRIEF.md`、`docs/DESIGN.md`、`docs/UPSTREAM.md`、`docs/MAINTENANCE.md` 和 `docs/HANDOFF.md`；
+2. 读取 `docs/README.md`，按当前任务选择所需文档，不默认加载全部文档；
+3. 若存在匹配的 `.ai/tasks/` 状态，读取它以恢复当前目标、决策和未完成工作；
 4. 检查当前 Git 分支、HEAD、工作区和目标文件的真实状态；
 5. 首次状态说明目标、范围、非目标、验收标准和当前阻塞项。
 
@@ -46,7 +46,7 @@ Agent 开始工作时必须：
 
 ## 强制文档保鲜规则
 
-任何影响接口、行为、配置、部署、版本、测试验收、限制条件或操作流程的代码/配置改动，必须在同一变更中同步更新所有受影响的正式文档、示例和交接记录。
+任何影响接口、行为、配置、部署、版本、测试验收、限制条件或操作流程的代码/配置改动，必须在同一变更中同步更新所有受影响的正式文档和示例。当前任务状态同步更新到 `.ai/tasks/`。
 
 在交接、评审、提交或发布前必须运行：
 
@@ -54,7 +54,7 @@ Agent 开始工作时必须：
 pnpm doc-check
 ```
 
-也可直接运行 `node scripts/doc-check.ts`。自动检查通过不代替人工判断；必须依据 `docs/MAINTENANCE.md` 的映射表检查行为语义、示例、快照和交接内容。
+也可直接运行 `node scripts/doc-check.ts`。自动检查通过不代替人工判断；必须依据 `docs/MAINTENANCE.md` 的映射表检查行为语义和示例。
 
 若确认没有文档受影响，必须在交接或提交说明中记录：
 
@@ -62,7 +62,7 @@ pnpm doc-check
 DOC_IMPACT: NONE — <具体理由>
 ```
 
-受影响文档未同步、示例过期、验收说明不一致或无法解释文档影响时，不能给出 `REVIEW_PASS`，也不能继续发布。正式上线前不要求提交 release summary；正式发布后新增的 `docs/RELEASE_SUMMARY_v*.md` 默认不回写，历史错误修正必须单独说明原因。
+受影响文档未同步、示例过期、验收说明不一致或无法解释文档影响时，不能给出 `REVIEW_PASS`，也不能继续发布。版本历史和发布证据使用 Git 提交、标签与 GitHub Releases，不写入长期入口文档。
 
 ## 交接格式
 
@@ -82,7 +82,8 @@ DECISION_NEEDED: ...
 NEXT: ...
 ```
 
-长交接继续使用 `docs/HANDOFF.md`；该文件必须引用本契约，不得产生冲突的角色定义。
+长任务的可恢复状态继续使用 `.ai/tasks/`；长期有效的产品、设计或上游结论必须写入
+`docs/DESIGN.md`、`docs/UPSTREAM.md` 或 `docs/MAINTENANCE.md`，不能只留在任务状态中。
 
 ## 非目标
 

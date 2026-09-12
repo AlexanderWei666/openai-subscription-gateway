@@ -17,13 +17,13 @@ API Key:  local-placeholder
 
 不做多 Provider / Router / Account Pool / Dashboard / Web UI / 插件系统 / MCP /
 Agent Loop / Shell·FS 工具 / 数据库 / 用户系统 / 公网部署 / 通用 OAuth 框架。
-不是 DSH 插件、不是 OpenCodex 兼容层、不是第二个 OpenCodex。
+不是客户端插件、不是 OpenCodex 兼容层、不是第二个 OpenCodex。
 上游永远只有 OpenAI Codex,下游永远只有 OpenAI-compatible API。
 
 ## 系统架构
 
 ```text
-下游客户端 (DSH / OpenAI SDK / ...)
+下游客户端 (OpenAI SDK / CLI / ...)
    │  OpenAI-compatible HTTP
    ▼
 api/          路由 + 校验 + OpenAI 风格错误          (不懂 OAuth、不懂 Codex 私有头)
@@ -154,7 +154,7 @@ gateway 的回退链一环。)
 
 **透传** `reasoning:{effort,summary}`,不做本地校验、不改写、不 clamp。
 实测证明目录的 `supported_reasoning_levels` 不是权威白名单(luna 未列 none 但上游
-接受,none 是 DSH 的默认值),本地拦截会误杀合法请求(见 UPSTREAM.md §10)。
+接受,且有客户端默认发送 none),本地拦截会误杀合法请求(见 UPSTREAM.md §10)。
 非法值由上游 400 裁决,其消息自带准确合法值列表,原样映射给下游。
 
 ## Service tier
@@ -175,7 +175,7 @@ gateway 的回退链一环。)
 
 ## Image input
 
-标准 `input_image` 透传。V1 支持(研究结论:当前全部 list 模型支持 image)。
+标准 `input_image` 透传。具体模型是否接受图像由动态目录和上游裁决。
 
 ## Errors
 
@@ -196,16 +196,18 @@ gateway 的回退链一环。)
 
 ## 稳定性:连接阶段重试
 
-上游连接层瞬断(本机代理链路抖动、`fetch failed`)会在**尚未向下游写出任何
+上游连接层瞬断(`fetch failed` 等)会在**尚未向下游写出任何
 字节**时自动重试:最多 3 次尝试,指数退避 300ms/600ms + jitter。
 依据:上游 `store=false` 无状态,未开始下发时重试幂等安全;一旦开始流式下发
-就不再重试(避免重复输出)。这减少了下游(如 DSH)自行重试整轮对话的浪费。
+就不再重试(避免重复输出)。这也减少了下游自行重试整轮对话的浪费。
 非幂等场景(已流式下发后中断)保持"宁可报错不重复"。
 
 ## 配置
 
-只有 env:`OSG_HOST`、`OSG_PORT`、`OSG_HOME`、`OSG_LOG_LEVEL`、`OSG_UPSTREAM_BASE_URL`(测试用)、
-`OSG_UPSTREAM_TIMEOUT_MS`。无配置文件。
+主配置面是环境变量：`OSG_HOST`、`OSG_PORT`、`OSG_HOME`、`OSG_LOG_LEVEL`、
+`OSG_UPSTREAM_BASE_URL`(测试用)、`OSG_UPSTREAM_TIMEOUT_MS` 和
+`OSG_CODEX_CLIENT_VERSION`。唯一持久配置例外是
+`{OSG_HOME}/config.json#clientVersion`，其理由和优先级见前文“配置策略”。
 
 ## 测试
 
@@ -216,8 +218,3 @@ gateway 的回退链一环。)
    工具、reasoning、tier、image、usage、取消、premature close。
 3. `tests/live/`:`LIVE_TEST=1 pnpm test:live` 才跑,真实账号,极短请求。
 `pnpm test` 只跑 1+2,零额度消耗。
-
-## 明确不做什么(再强调)
-
-任何 `ProviderRegistry / Router / AccountPool / PluginSystem / UniversalAdapter`
-出现即越界。模型 id 白名单出现即越界。为单个客户端(含 DSH)写的特判出现即越界。

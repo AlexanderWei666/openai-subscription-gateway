@@ -1,9 +1,8 @@
 @echo off
 REM ---------------------------------------------------------------------------
 REM openai-subscription-gateway launcher (Windows)
-REM Binds the gateway to the WSL vEthernet IP so clients inside WSL
-REM (e.g. DSH at http://<ip>:10101/v1) can reach it.
-REM For Windows-only clients use plain: node dist\cli\index.js serve
+REM Binds the gateway to the WSL vEthernet IP so clients inside WSL can reach it.
+REM For Windows-only clients use plain: node src\cli\index.ts serve
 REM (that binds 127.0.0.1 only).
 REM ---------------------------------------------------------------------------
 cd /d "%~dp0"
@@ -13,12 +12,12 @@ for /f "usebackq tokens=*" %%i in (`powershell -NoProfile -Command "(Get-NetIPAd
 if "%WSL_IP%"=="" (
   echo [ERROR] WSL vEthernet IP not found.
   echo         Run: ipconfig ^| findstr /C:"vEthernet"
-  echo         then: set OSG_HOST=^<that IP^> ^&^& node dist\cli\index.js serve
+  echo         then: set OSG_HOST=^<that IP^> ^&^& node src\cli\index.ts serve
   pause
   exit /b 1
 )
 
 echo Binding gateway to %WSL_IP%:10101  (WSL clients: http://%WSL_IP%:10101/v1)
 set OSG_HOST=%WSL_IP%
-node dist\cli\index.js serve
+node src\cli\index.ts serve
 pause

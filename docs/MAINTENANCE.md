@@ -1,123 +1,135 @@
-# MAINTENANCE.md — 对齐最新 Codex 的标准流程
+# 维护与上游对齐
 
-> 适用场景:OpenAI 改了协议 / `osg upstream-check` 报 REVIEW_REQUIRED /
-> 用户要求"对齐最新 Codex"。
-> 执行者可以是完全不了解本项目的 AI:从本文件开始,不要先读源码。
+本文描述两类工作：普通代码变更的文档保鲜，以及 Codex 上游协议变化时的对齐流程。
+长期设计约束见 `docs/DESIGN.md`，当前依赖的 wire 契约见 `docs/UPSTREAM.md`。
 
-## 前提
+## 固定边界
 
-- 已读 `docs/DESIGN.md`(10 分钟)和 `docs/UPSTREAM.md`(15 分钟)。
-- 本机装有 Codex CLI;能访问 github.com/openai/codex。
-- 绝对边界:**禁止**借"对齐上游"顺手增加第二 Provider、路由系统、Web UI、
-  配置系统或任何与本 issue 无关的功能。发现自己在写 ProviderRegistry 类东西,
-  立即停止并缩减。
+维护工作不能借机扩大产品：
 
-## 维护时的固定认知(不要被"完整性"诱惑)
+1. OSG 是 OpenAI-compatible supported subset，不是完整 OpenAI API clone。
+2. 上游只有 OpenAI Codex；不增加第二 Provider、路由器或账号池。
+3. reasoning 原样透传，不把模型目录当成本地权威白名单。
+4. `fast` 按已验证 wire 契约转换为 `priority`。
+5. Windows ACL 不由项目管理；非 loopback 监听也不获得真实 API 认证。
+6. 不为单个客户端加入模型 ID 或请求形状特判。
 
-维护/对齐过程中必须保持以下既有决策,不要"顺手改进":
+如果上游变化迫使项目突破这些边界，应停止实施并由 `DECISION_OWNER` 重新决定产品方向。
 
-1. **定位**:OSG 是 OpenAI-compatible **supported subset**,不是完整 OpenAI
-   API clone。不要为"补齐兼容性"新增端点或参数面。
-2. **Reasoning**:一律**原样透传**,不做本地目录校验——目录的
-   `supported_reasoning_levels` 不是权威白名单(UPSTREAM.md §10 有实测)。
-3. **Fast**:是 `fast` → `priority` 的**转换**,不是原样透传(UPSTREAM.md §11)。
-4. **Windows ACL**:OSG 假定**可信本地用户环境**,不管理 NTFS ACL;
-   `doctor` 只输出 WARN,不显示 PASS。不要引入 icacls/DACL 自动化。
+## 文档保鲜
 
-## 文档保鲜(每次改动后都要做)
-
-文档会静默过期,而**过期的文档比没有文档更糟**——读者会按错的说明操作。
-先跑检查,再按需手工补:
+每次改动后运行：
 
 ```bash
-node scripts/doc-check.ts      # 或 pnpm doc-check
+pnpm doc-check
 ```
 
-它会自动校验(不一致即 exit 1):
+检查器会验证：
 
-1. 文档提到的 CLI 子命令是否存在;
-2. `GATEWAY_VERSION` / `package.json` / `UPSTREAM.md` 三处版本号是否一致;
-3. README 提到的 `OSG_*` 环境变量是否真被代码读取;
-4. `FALLBACK_CODEX_VERSION` 是否与 `UPSTREAM.md` 的已验证版本一致;
-5. 文档引用的仓库内文件路径是否存在。
+1. 约定的入口文档完整，旧入口没有残留；
+2. 文档中的 CLI 子命令真实存在；
+3. `GATEWAY_VERSION`、`package.json` 和 `docs/UPSTREAM.md` 版本一致；
+4. README 中的 `OSG_*` 变量确实被代码读取；
+5. `FALLBACK_CODEX_VERSION` 与上游验证基线一致；
+6. 文档引用的仓库内文件存在。
 
-**脚本查不到的,必须人工判断**(改动后自查这几条):
+自动检查无法理解语义。还必须按改动类型人工核对：
 
-| 改动类型 | 需要同步的文档 |
+| 改动类型 | 需要检查的文档 |
 |---|---|
-| 新增/修改 CLI 命令或参数 | `README.md` 的用法段 + `docs/ORIENTATION.md` 的关键文件表 |
-| 改默认行为(监听地址、端口、超时、tier 转换) | `README.md` 启动/安全边界 + `docs/DESIGN.md` |
-| 改 API 层行为(参数支持面、错误码) | `docs/UPSTREAM.md` + `README.md` 支持能力表 |
-| 正式发版(版本号变化) | `docs/UPSTREAM.md` 的 `Gateway version` + 新增 `RELEASE_SUMMARY_vX.Y.Z.md` |
-| 修改架构/分层/新增模块 | `docs/DESIGN.md` + `docs/HANDOFF.md` + `docs/ORIENTATION.md` 的文件表 |
-| 改测试数量、依赖、规模 | `docs/HANDOFF.md` 的"当前版本状态"表 |
+| 安装、登录、启动、CLI 或配置 | `README.md`；涉及 WSL 时再看 `docs/WSL.md` |
+| API 支持面、错误或客户端可见行为 | `README.md`、`docs/DESIGN.md`、`docs/UPSTREAM.md` |
+| 架构、分层或模块职责 | `docs/DESIGN.md`、`docs/DEVELOPMENT.md`、`docs/REVIEWING.md` |
+| OAuth、Codex headers、SSE、模型目录、reasoning、tier | `docs/UPSTREAM.md`、本文 |
+| 测试或发布门禁 | `docs/DEVELOPMENT.md`、`docs/REVIEWING.md`、本文 |
+| Agent 角色、权限或交接规则 | `AGENTS.md`、`docs/README.md` |
 
-**正式上线前不提交 release summary**。正式上线后，历史 release 文档不改写，
-只追加新版本文件,不回填旧文件(留痕原则)。`docs/HANDOFF.md` 则始终反映最新状态。
-
-### 多 Agent 协作强制门禁
-
-根目录 `AGENTS.md` 是 Codex 与 WorkBuddy 共同识别的正式协作契约。任何影响接口、行为、配置、
-部署、版本、测试验收、限制条件或操作流程的代码/配置改动，必须在同一变更中同步更新受影响的
-正式文档、示例和交接记录。文档更新不能推迟到下一次提交或发布。
-
-交接、评审、提交或发布前必须执行 `pnpm doc-check`（等价命令为
-`node scripts/doc-check.ts`），并人工按上方映射表复核脚本无法识别的行为语义、示例、快照和交接
-内容。确认没有文档受影响时，必须记录 `DOC_IMPACT: NONE — <具体理由>`；未能说明文档影响、
-受影响文档未同步或内容已过期时，评审不得给出 `REVIEW_PASS`，发布不得继续。
-
-## 流程
-
-1. **查本机 Codex CLI 版本**:`codex --version`。
-2. **查项目最后验证版本**:见 `docs/UPSTREAM.md` 头部 verified 块。
-3. **获取最新 openai/codex**:GitHub releases 页确认最新 tag;
-   源码抓 `raw.githubusercontent.com/openai/codex/<tag>/...`(优先用 release tag,不用 main)。
-4. **对比 OAuth**:核对 `codex-rs/login/src/server.rs` 的 authorize 参数、
-   token endpoint、refresh 请求体,与 UPSTREAM.md §1–§3 逐项对。
-5. **对比 backend URL 与 headers**:`codex-rs/model-provider-info/src/lib.rs`、
-   `codex-rs/login/src/auth/default_client.rs`、`codex-rs/model-provider/src/bearer_auth_provider.rs`、
-   `codex-rs/codex-api/src/requests/headers.rs`,与 UPSTREAM.md §4–§5 对。
-6. **对比 Responses wire protocol**:`codex-rs/core/src/client.rs` 的
-   `build_responses_request`,核对强制字段(stream/store/include/tool_choice)
-   与透传字段,与 UPSTREAM.md §6–§7 对。
-7. **对比 SSE**:`codex-rs/codex-api/src/sse/responses.rs`,核对事件类型与
-   terminal 事件,与 UPSTREAM.md §8 对。
-8. **对比 model catalog**:`codex-rs/codex-api/src/endpoint/models.rs`、
-   `codex-rs/models-manager/`,核对 endpoint、schema、过滤语义,与 UPSTREAM.md §9 对;
-   如本机已登录 Codex,可读 `~/.codex/models_cache.json`(只读)看真实 schema。
-   **同时更新 `FALLBACK_CODEX_VERSION`**(`src/upstream/client-version.ts`):
-   它必须等于当前已验证的 Codex CLI 版本(上游按 client_version 过滤目录,
-   见 UPSTREAM.md §9 的实测记录)。用户侧还可用 `OSG_CODEX_CLIENT_VERSION`
-   或 `{OSG_HOME}/config.json` 覆盖;`osg config` 可查看当前生效值与来源。
-9. **对比 reasoning / service tiers / tools / image input / errors / usage**:
-   对 UPSTREAM.md §10–§15。
-10. **先写 failing test**:任何确认的上游变化,先在 `tests/contract/` 写一个
-    能复现新行为的失败测试(mock 按新行为),再改代码。
-11. **最小修复**:改动应集中在 `src/upstream/` 与 `src/auth/`。
-    若发现必须改 `src/api/`,先停下来重审设计——大概率是上游逻辑泄漏。
-12. **跑全量离线测试**:`pnpm test` 必须全绿。
-13. **可选 live smoke**:`LIVE_TEST=1 pnpm test:live`(需已 `osg login` + `osg serve`
-    运行中,烧极少额度)。**live 探针脚本**(真实账号、最小请求、不打印凭证):
-    `node scripts/probe-models.ts`(目录 shape)、`node scripts/probe-responses.ts`
-    (逐参数支持面)、`node scripts/probe-tools.ts`(SSE 事件序列)——上游行为
-    存疑时先跑探针再改代码,结论回写 UPSTREAM.md 并标注实测日期。
-14. **更新 UPSTREAM.md**:改 verified 块(CLI 版本、codex revision、日期、
-    gateway 版本),并修订变化的条目;本地 workaround 要写明原因。
-15. **提交**:单独一个 commit,信息格式 `chore(upstream): align with codex <version>`。
-
-## upstream-check 输出语义
+如果确认没有文档影响，交接或提交说明必须写：
 
 ```text
-UPSTREAM_STATUS: CURRENT           → 本机 CLI 与 verified 一致,廉价检查通过
-UPSTREAM_STATUS: REVIEW_REQUIRED   → 版本差异或目录 schema 漂移,执行本文件流程
+DOC_IMPACT: NONE — <具体理由>
 ```
 
-upstream-check 永远不自动改代码。
+不要把测试数量、文件行数、当前服务状态、某次评审结论或机器特有故障写入长期入口文档。
+这些信息应由 Git、CI、新鲜命令输出和 `.ai/tasks/` 提供。
 
-## 常见坑
+## 什么时候需要上游对齐
 
-- refresh 响应没有新 refresh_token 时**保留旧的**;覆盖成 undefined 会直接丢登录态。
-- 上游 `stream=true` 是硬要求;非流式下游请求靠 gateway 聚合,不要试图对上游发 stream=false。
-- `tool_choice="auto"` 是 CLI 的强制行为而非已证实的 backend 约束;改这里要有 live 证据并记录。
-- models_cache.json 的 `client_version` 强校验是 Codex 的行为;gateway 的缓存不要复刻它
-  (否则每次上游发版我们的缓存就失效)。
+出现任一情况时执行本节：
+
+- `osg upstream-check` 返回 `REVIEW_REQUIRED`；
+- Codex CLI 或上游协议版本变化；
+- 模型目录为空、schema 漂移或已验证字段消失；
+- 请求参数、SSE 事件、OAuth 或错误行为与 `docs/UPSTREAM.md` 不符。
+
+`upstream-check` 只报告漂移，不自动修改代码。
+
+## 上游对齐流程
+
+### 1. 固定基线
+
+记录目标 Git commit、已安装 Codex CLI 版本、`docs/UPSTREAM.md` 的 verified 块，以及
+本次允许的 live 验证范围。真实 OAuth、推理和外部写入必须先获得明确授权。
+
+### 2. 使用官方源码核对
+
+优先按 release tag 获取 OpenAI Codex 源码，逐项比较：
+
+- OAuth authorize、token、refresh 和 revoke；
+- backend URL 与必需 headers；
+- Responses 请求体和参数归一化；
+- SSE 事件及终止条件；
+- model catalog endpoint、schema 和 `client_version`；
+- reasoning、service tier、tools、image、errors 和 usage。
+
+对应的依赖契约按章节记录在 `docs/UPSTREAM.md`。只记录本项目真正依赖的行为，不复制
+大段上游实现。
+
+### 3. 用最小探针确认不确定行为
+
+仓库提供：
+
+- `scripts/probe-models.ts`：目录结构；
+- `scripts/probe-responses.ts`：参数支持面；
+- `scripts/probe-tools.ts`：工具调用和 SSE 事件。
+
+这些脚本使用真实账号，只能在明确授权后运行。探针必须保持最小请求，且不得打印凭证。
+
+### 4. 先得到失败测试
+
+确认上游变化后，先在 `tests/contract/` 或 `tests/unit/` 写出能复现新行为的失败测试。
+没有失败证据时，不要靠猜测修改 adapter。
+
+### 5. 做最小修复
+
+修复应优先集中在 `src/upstream/` 与 `src/auth/`。如果必须让 `src/api/` 理解
+Codex 私有行为，先重新检查分层是否泄漏。
+
+`FALLBACK_CODEX_VERSION` 位于 `src/upstream/client-version.ts`，必须与
+`docs/UPSTREAM.md` 的已验证 Codex CLI 版本一致。用户仍可通过
+`OSG_CODEX_CLIENT_VERSION` 或 `{OSG_HOME}/config.json` 覆盖。
+
+### 6. 验证和记录
+
+默认运行：
+
+```bash
+pnpm test
+pnpm typecheck
+pnpm build
+pnpm doc-check
+git diff --check
+```
+
+获得授权后再运行所需 live smoke。最后更新 `docs/UPSTREAM.md` 的 verified 块和发生变化的
+章节，清楚区分源码确认、真实账号实测与仍未验证的推断。
+
+## 常见高风险点
+
+- refresh 响应没有新 refresh token 时必须保留旧值。
+- 上游恒用 `stream=true`；下游非流式响应由网关聚合。
+- 非流式 output 需要兼容从 `response.output_item.done` 重建。
+- 一旦向下游写出字节，不得把连接重试伪装成一次完整响应。
+- 模型目录的 reasoning 列表不是上游请求校验的权威来源。
+- 所有参数改写必须有证据，并通过 `x-osg-normalized` 对下游透明说明。
+- token、Authorization、OAuth code/state 和凭证内容不得进入日志、错误或测试 fixture。

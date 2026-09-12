@@ -4,17 +4,14 @@
 维护规则:每次对齐上游后更新下方 verified 信息;只记录我们真正依赖的契约,不复制官方大段代码。
 
 ```text
-Last verified Codex CLI version: 0.154.0 (用户 WSL 验证环境中的 codex-cli;
-  历史:0.153.4 曾为验证版本,Windows PATH 上另有 0.148.0)
+Last verified Codex CLI version: 0.154.0
 Last verified openai/codex revision: main branch, fetched 2026-09-10
-Last verified date: 2026-09-12 (0.154.0 实测:live 套件 9/9 全通)
+Last verified date: 2026-09-12
 Gateway version: 0.1.1
 ```
 
-> 注意:研究基于 main 分支(≈0.154.0)源码。本机 CLI 为 0.148.0,相差 6 个 minor。
-> 落地常量(client_id、scope、端口等)在 0.148→0.154 间未见变更迹象,但每次
-> upstream-check 发现版本差异时应按 MAINTENANCE.md 复核本文件。
-> 2026-09-11 起 §1–§3(OAuth)与 §9(client_version 行为)已经真实账号 live 验证。
+验证基线同时包含上游源码核对和获得授权后的真实账号探测。出现版本漂移时按
+`docs/MAINTENANCE.md` 重新验证，不把这份历史基线当作当前机器状态。
 
 ---
 
@@ -160,25 +157,16 @@ CLI `build_responses_request`(`codex-rs/core/src/client.rs`)行为契约:
   因此 gateway 必须发送已验证的 Codex 版本(config `clientVersion`,可用
   `OSG_CODEX_CLIENT_VERSION` 覆盖),由 upstream-check 发现版本漂移。
   发送自身版本号会得到静默空目录,这是最容易误诊为"账号无权限"的坑。
-- **取值决策(已更新为 0.154.0,2026-09-12)**:当前 `FALLBACK_CODEX_VERSION = "0.154.0"`
-  (用户 WSL 验证环境中的 codex-cli 版本;0.153.4 为更早的验证版本,Windows PATH 上另有 0.148.0)。
-  gateway 伪装成它则上游目录与用户 CLI 一致;gpt-6-astra 推理实测通过
-  (status=completed,usage 含新版 `attribution` 明细,原样透传)。`upstream-check` 优先探测 `wsl codex --version`(不可用
-  时回退 PATH),与该值对齐报 CURRENT/REVIEW_REQUIRED。
+- **取值决策**:`FALLBACK_CODEX_VERSION = "0.154.0"`，与本文件 verified 块一致。
+  `upstream-check` 在 Windows 上优先探测 `wsl codex --version`，不可用时回退 PATH，
+  并据此报告 CURRENT 或 REVIEW_REQUIRED。
 - **取值来源(RC 收口后,实现在 `src/upstream/client-version.ts`)**:
   优先级 `OSG_CODEX_CLIENT_VERSION` → `{OSG_HOME}/config.json#clientVersion`
   → 自动检测 `codex --version`(Windows 优先 WSL) → `FALLBACK_CODEX_VERSION`。
   约束:检测失败不阻断启动;不自动升级;不自动改写配置;已有配置时短路探测;
   检测值低于已验证版本仅提示不改值。`osg config` / `osg doctor` 会输出
   effective / source / configured / detected / fallback。
-- **0.154.0 对齐记录(2026-09-12)**:用户 WSL 中的 codex 升级到 0.154.0,
-  `upstream-check` 报 drift;以该版本实测 live 套件 **9/9 全通**
-  (models / responses / streaming / reasoning / fast / tools / image / refresh)
-  → 判定本文件记录的全部契约在 0.154.0 下依然成立,`FALLBACK_CODEX_VERSION`
-  与 verified 块同步更新为 0.154.0。
-  **未做上游源码级 diff**(GitHub release notes 为空),验证依据是实测——
-  与本项目"契约来自实测"的既有做法一致。
-- 条目关键字段(实测本机 models_cache.json,2026-09-10):
+- 目录条目关键字段:
   `slug, display_name, description, default_reasoning_level, supported_reasoning_levels[{effort,description}], visibility(list|hide|none), supported_in_api, priority, additional_speed_tiers[], service_tiers[{id,name,description}], default_service_tier, context_window, max_context_window, effective_context_window_percent, input_modalities[], default_reasoning_summary, truncation_policy, upgrade?`。
 - gateway 契约:仅暴露 `visibility=="list"` 且 `supported_in_api==true` 的模型;**严禁模型白名单硬编码**。
 - 官方源码位置:`codex-rs/models-manager/`、`codex-rs/codex-api/src/endpoint/models.rs`、`codex-rs/app-server/src/models.rs`。
@@ -191,7 +179,7 @@ CLI `build_responses_request`(`codex-rs/core/src/client.rs`)行为契约:
   - 目录 `supported_reasoning_levels` = low/medium/high/xhigh/max(**无 none**)
   - 但上游实际:effort=`none` → **200 接受**;effort=`minimal` → 400
     (`Supported values are: 'none', 'low', 'medium', 'high', 'xhigh', and 'max'`)
-  - 结论:以目录做本地前置校验会**误杀合法请求**(DSH 默认 effort=none 被拦即为实例)。
+  - 结论:以目录做本地前置校验会**误杀合法请求**(客户端发送合法的 effort=none 即为实例)。
 - gateway 契约:**reasoning 不做任何本地校验、不改写、不 clamp,一律透传**;
   上游 400 自带准确合法值列表,由 errors.ts 映射为 OpenAI 风格错误(消息保留)。
   这是"越薄越成功"原则的直接体现——目录只用于 `/v1/models` 展示与 model 存在性。
@@ -218,7 +206,7 @@ CLI `build_responses_request`(`codex-rs/core/src/client.rs`)行为契约:
 
 ## 13. Image input
 
-- 实测目录所有 list 模型 `input_modalities: ["text","image"]`,即当前 Codex 模型均支持图像输入。
+- 目录通过 `input_modalities` 表达模型是否支持图像输入。
 - item 形式:`input_image`(base64 data URL,`detail` 参数;目录有 `supports_image_detail_original`)。
 - gateway 契约:按标准 Responses schema 透传,零改写。V1 支持。
 
@@ -246,13 +234,3 @@ CLI `build_responses_request`(`codex-rs/core/src/client.rs`)行为契约:
 
 - `response.completed.usage`:`input_tokens`、`input_tokens_details{cached_tokens, cache_write_tokens}`、`output_tokens`、`output_tokens_details{reasoning_tokens}`、`total_tokens`、Codex 专属 `codex_rollout_budget_units`。
 - gateway 契约:usage 原样透传(含 Codex 扩展字段,OpenAI SDK 会忽略未知字段);**不估算、不伪造**;非流式聚合时取 completed 事件的 usage。
-
----
-
-## 附:本机 models_cache.json 实测摘要(2026-09-10)
-
-- 顶层:`{fetched_at, etag, client_version:"0.153.4", models:[7]}`。
-- list+api 可见模型:`gpt-6-astra`(priority 1,默认)、`gpt-5.6-sol`、`gpt-5.6-terra`、`gpt-5.6-luna`、`gpt-5.5`。
-- 全模型:`input_modalities:["text","image"]`,`additional_speed_tiers:["fast"]`。
-- reasoning:gpt-6-astra / gpt-5.6-* 支持 low→ultra 六档;gpt-5.5 支持 low→xhigh 四档。
-- context_window 272000;max_context_window 多数 872000(gpt-5.5 为 272000)。
