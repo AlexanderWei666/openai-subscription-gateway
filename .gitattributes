@@ -1,0 +1,22 @@
+# 行尾统一规则(Windows 开发 + WSL 运行的关键)
+#
+# 背景:仓库在 Windows 上开发,但 start-serve.sh 要在 WSL/Linux 执行。
+# 若 .sh 被 checkout 成 CRLF,执行时会报 "bad interpreter: /bin/bash^M"。
+# 因此对跨平台脚本显式声明行尾,不依赖各机器的 core.autocrlf 设置。
+
+* text=auto
+
+# WSL/Linux 执行:必须 LF
+*.sh text eol=lf
+
+# Windows 执行:必须 CRLF
+*.bat text eol=crlf
+
+# 源码与文档:统一 LF(避免 diff 噪音与跨平台差异)
+*.ts   text eol=lf
+*.js   text eol=lf
+*.mjs  text eol=lf
+*.json text eol=lf
+*.md   text eol=lf
+*.yml  text eol=lf
+*.yaml text eol=lf

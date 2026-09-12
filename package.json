@@ -1,0 +1,27 @@
+{
+  "name": "openai-subscription-gateway",
+  "version": "0.1.1",
+  "private": true,
+  "description": "ChatGPT/OpenAI Codex subscription -> local OpenAI-compatible API gateway",
+  "type": "module",
+  "engines": {
+    "node": ">=24.0.0"
+  },
+  "bin": {
+    "osg": "./dist/cli/index.js"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "dev": "node --watch src/cli/index.ts serve",
+    "start": "node dist/cli/index.js serve",
+    "test": "node --test \"tests/unit/**/*.test.ts\" \"tests/contract/**/*.test.ts\"",
+    "test:live": "node --test \"tests/live/**/*.test.ts\"",
+    "typecheck": "tsc -p tsconfig.test.json",
+    "doc-check": "node scripts/doc-check.ts"
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.0",
+    "typescript": "^5.9.2"
+  },
+  "packageManager": "pnpm@10.15.0"
+}
